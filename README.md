@@ -1,8 +1,8 @@
-# @xsj/dsh-rewind
+# @steycr/dsh-rewind
 
 [English](./README_EN.md) | 简体中文
 
-DSH（[DeepSeek Harness](https://github.com/deepseek-ai)）会话回退插件。永久 bundle 插件：宿主机半 + Web 客户端半，零依赖、零构建步骤。
+DSH（[DeepSeek Harness](https://github.com/deepseek-ai)）会话回退插件。此 fork 面向 DSH `0.2.0-rc.2`，保留原版「回退后先编辑、发送前可取消」流程。
 
 ## 功能
 
@@ -20,7 +20,9 @@ DSH（[DeepSeek Harness](https://github.com/deepseek-ai)）会话回退插件。
 
 ## 版本兼容性
 
-- **v2.4.0 实测支持 dsh 0.1.5-rc.2**，并保留对 0.1.x 早期版本的兼容——事件流读取优先官方 `snapshotEvents()` / `eventAt()`，旧宿主自动回退 `session.events`。
+- **v2.4.1 fork 目标为 DSH 0.2.0-rc.2**：更新 client 依赖顺序、模块 identity 与 rc.2 composer DOM 选择器；Host 端使用的 `snapshotEvents()` / `eventAt()` / `deriveMessages()` / `agent.cancel()` 等 API 在 rc.2 仍存在。
+- 当前环境未开放 `node` / `dsh` 可执行档，因此这里完成的是源码/API 级移植；实际 Desktop 启动仍应作为最终验证。
+- **上游 v2.4.0 实测支持 dsh 0.1.5-rc.2**，并保留对 0.1.x 早期版本的兼容——事件流读取优先官方 `snapshotEvents()` / `eventAt()`，旧宿主自动回退 `session.events`。
 - **v2.4.0 修复「模型输出没有被隐藏」**（本版主要修复）：
   - **成因**：本插件只接管了 `conversation.chat.node` 的 `user` / `steering` 两个渲染器，因此只有这两类行会被打上 `data-xsj-seq` 标记；模型的 `assistant-step` 输出、工具调用、context 等行走官方渲染器，**从来没有标记**。此前隐藏判定对未标记的行一律「不隐藏」，于是提交区间后只藏住了提问、回答仍然留在屏幕上。
   - **修法**：未标记的行不再被放弃，而是按 DOM 顺序从**前一条已标记行**继承判定——它属于其所跟随的那一轮。仅对「前面完全没有证据」的前导行才回退到后方证据。这个前向归属是必须的：若改成「后面有隐藏就算隐藏」，区间**上方**那条回答会被误藏（开发过程中确实踩到，已由 `test/hiding.test.mjs` 覆盖）。
@@ -62,20 +64,19 @@ DSH（[DeepSeek Harness](https://github.com/deepseek-ai)）会话回退插件。
 ## 安装
 
 ```powershell
-# 在任意目录执行（路径指向本仓库克隆位置）：
-dsh plugin --profile web add <本仓库目录的绝对路径>
+# Desktop 0.2.0-rc.2：直接使用本机 checkout
+dsh plugin --profile desktop add D:\Dev\dsh-rewind
 
-# 重启 DSH 进程，并刷新浏览器页面
+# 或直接安装 GitHub main
+dsh plugin --profile desktop add github:steycr/dsh-rewind#main
 ```
 
-该命令会把包登记进 profile（`~/.dsh/profiles/<name>/package.json` 的
-`dependencies` + `dsh.profile.bundles`），profile 启动时合并本包的
-`cordis.patch.yml` 插入宿主机插件行，Web 客户端扫描自动加载 `lib/client.js`。
+安装后完整退出并重新打开 DSH Desktop。若使用独立 Web profile，把 `desktop` 改成 `web` 即可。
 
 ## 卸载
 
 ```powershell
-dsh plugin --profile web remove @xsj/dsh-rewind
+dsh plugin --profile desktop remove @steycr/dsh-rewind
 # 重启 DSH。会话日志中的 rewind 记录无害保留（hook/invoked 为已知类型）。
 ```
 

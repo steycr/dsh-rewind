@@ -1,6 +1,6 @@
 {
-  "name": "@xsj/dsh-rewind",
-  "version": "2.4.0",
+  "name": "@steycr/dsh-rewind",
+  "version": "2.4.1",
   "description": "Rewind a DSH conversation to any user message: hide the tail from the chat view and the model context, keep the durable log intact, cancel freely before sending.",
   "type": "module",
   "main": "lib/index.js",
@@ -15,13 +15,20 @@
     },
     "client": {
       "inject": [
-        "@deepseek-ai/dsh-client-ui-slots"
+        "@deepseek-ai/dsh-client-ui-slots",
+        "@deepseek-ai/dsh-client-ui-chat"
       ],
       "platform": "web"
+    },
+    "compatibility": {
+      "dsh": "0.2.0-rc.2",
+      "dshReleases": {
+        "0.2.0-rc.2": "compatible"
+      }
     }
   },
   "engines": {
-    "node": ">=20"
+    "node": "^22.19.0 || >=24.0.0"
   },
   "keywords": [
     "dsh",
@@ -31,13 +38,16 @@
     "conversation"
   ],
   "author": "XSJUSTC",
+  "contributors": [
+    "steycr"
+  ],
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/XSJUSTC/dsh-rewind.git"
+    "url": "git+https://github.com/steycr/dsh-rewind.git"
   },
-  "homepage": "https://github.com/XSJUSTC/dsh-rewind#readme",
-  "bugs": "https://github.com/XSJUSTC/dsh-rewind/issues",
+  "homepage": "https://github.com/steycr/dsh-rewind#readme",
+  "bugs": "https://github.com/steycr/dsh-rewind/issues",
   "files": [
     "lib",
     "cordis.patch.yml",

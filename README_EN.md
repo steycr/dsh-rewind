@@ -1,10 +1,8 @@
-# @xsj/dsh-rewind
+# @steycr/dsh-rewind
 
 English | [简体中文](./README.md)
 
-A conversation-rewind plugin for DSH (DeepSeek Harness). A permanent bundle
-plugin with a host half and a web client half — zero dependencies, zero build
-steps.
+A DSH (DeepSeek Harness) conversation-rewind plugin. This fork targets DSH `0.2.0-rc.2` while preserving the original edit-before-send and cancel-before-commit flow.
 
 ## Features
 
@@ -30,9 +28,9 @@ steps.
 
 ## Version compatibility
 
-- **v2.4.0 is verified against dsh 0.1.5-rc.2** while keeping earlier 0.1.x
-  hosts working — event-log access prefers the official `snapshotEvents()` /
-  `eventAt()` and falls back to `session.events` on older hosts.
+- **v2.4.1 fork targets DSH 0.2.0-rc.2**: client dependency ordering, module identity, and the rc.2 composer DOM selector are updated; the host APIs used by the rewind core remain present in rc.2.
+- The current execution environment does not expose `node` or `dsh`, so this pass is source/API-level verification; an actual Desktop boot remains the final runtime check.
+- **Upstream v2.4.0 is verified against dsh 0.1.5-rc.2** while keeping earlier 0.1.x hosts working.
 - **v2.4.0 fixes "the model's output was not hidden"** (the main fix here):
   - **Cause**: the plugin shadows only the `user` / `steering` renderers of
     `conversation.chat.node`, so only those rows ever carried a `data-xsj-seq`
@@ -145,21 +143,19 @@ steps.
 ## Install
 
 ```powershell
-# from anywhere; the path points at your clone of this repo:
-dsh plugin --profile web add <absolute path to this repo>
+# DSH Desktop 0.2.0-rc.2 from this checkout:
+dsh plugin --profile desktop add D:\Dev\dsh-rewind
 
-# restart the DSH process, then refresh the browser page
+# Or install the GitHub main branch:
+dsh plugin --profile desktop add github:steycr/dsh-rewind#main
 ```
 
-The command registers the package into the profile
-(`~/.dsh/profiles/<name>/package.json`: `dependencies` + `dsh.profile.bundles`).
-At boot the profile merges this package's `cordis.patch.yml`, inserting the
-host plugin row; the web client scan then serves `lib/client.js` automatically.
+Fully quit and reopen DSH Desktop after installation. For standalone Web, replace `desktop` with `web`.
 
 ## Uninstall
 
 ```powershell
-dsh plugin --profile web remove @xsj/dsh-rewind
+dsh plugin --profile desktop remove @steycr/dsh-rewind
 # restart DSH. Rewind records in session logs are harmless (hook/invoked is a
 # known event type).
 ```
