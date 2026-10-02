@@ -2,24 +2,24 @@
 
 [English](./README_EN.md) | 简体中文
 
-DSH（[DeepSeek Harness](https://github.com/deepseek-ai)）会话回退插件。此 fork 面向 DSH `0.2.0-rc.2`，保留原版「回退后先编辑、发送前可取消」流程。
+DSH（[DeepSeek Harness](https://github.com/deepseek-ai)）会话回退插件。此 fork 面向 DSH `0.2.0-rc.2`，保留「回退后先编辑、发送前可取消」流程。
 
 ## 功能
 
-- 每条用户消息的操作行（复制图标旁）出现 **↺ 回退** 图标。点击后：
+- 每条用户消息的操作行（复制图标旁）提供**编辑 / 回退**操作。点击后：
   - 若模型正在思考/输出，**立即打断**当前回合；
-  - 该消息及其后的所有内容在聊天视图中隐藏（如同从未发生）；
-  - 该消息文本自动填入输入框，**未发送、可编辑**；
-  - 该消息携带的**图片也会重新挂回输入框**（从会话日志读回原始字节，走官方附件入档流程，自动套用图片数量/大小限制）；
+  - 原消息保持可读，其后的旧分支在聊天视图中**淡化**，但不从布局中移除；
+  - 原消息文本自动填入输入框，**未发送、可编辑，并自动聚焦到编辑框末尾**；
+  - 原消息携带的**图片也会重新挂回输入框**（从会话日志读回原始字节，走官方附件入档流程，自动套用图片数量/大小限制）；
   - 下一次发送时，模型只看到截断后的历史（回退点之前）+ 新消息。
 - 回退待发送期间：
-  - 输入框上方出现提示横幅；
-  - **发送按钮左侧出现 ✕「取消回溯」**：点击后恢复被隐藏的消息，草稿保持不变，不发送任何内容。
-- 发送后（回退生效）：被隐藏的消息永远不再出现在聊天视图，也不再进入模型上下文。
+  - 输入框上方出现提示横幅，原本的 ✕ 取消按钮移动到横幅最右侧；
+  - 点击该 ✕，或在输入框聚焦时按 `Esc`，都会取消回溯；
+  - 取消后旧分支恢复正常显示，并清空输入框文字与附件，不发送任何内容。
+- 发送后（回退生效）：旧目标消息与被排除的旧分支仍保留在聊天记录中，但以淡化状态显示；它们不会再进入模型上下文。
 - 仅用户消息可回退；DSH（助手）消息没有回退入口（Host 侧强制校验事件类型）。
 
 ## 版本兼容性
-
 - **v2.4.1 fork 目标为 DSH 0.2.0-rc.2**：更新 client 依赖顺序、模块 identity 与 rc.2 composer DOM 选择器；Host 端使用的 `snapshotEvents()` / `eventAt()` / `deriveMessages()` / `agent.cancel()` 等 API 在 rc.2 仍存在。
 - 当前环境未开放 `node` / `dsh` 可执行档，因此这里完成的是源码/API 级移植；实际 Desktop 启动仍应作为最终验证。
 - **上游 v2.4.0 实测支持 dsh 0.1.5-rc.2**，并保留对 0.1.x 早期版本的兼容——事件流读取优先官方 `snapshotEvents()` / `eventAt()`，旧宿主自动回退 `session.events`。
@@ -58,7 +58,7 @@ DSH（[DeepSeek Harness](https://github.com/deepseek-ai)）会话回退插件。
 - 每次状态变化追加一条 `hook/invoked` 事件，负载为
   `{ source: 'xsj.rewind', phase: 'mark' | 'cancel' | 'commit', targetSeq, hiddenFrom?, hiddenTo?, preview? }`。
   该事件类型属于本构建的已知保留词条（无读写方），重载安全。
-- 进程重启后打开会话，Host 半会回放这些记录重建隐藏区间：模型侧与 UI 侧的隐藏状态跨重启保持一致。
+- 进程重启后打开会话，Host 半会回放这些记录重建模型排除区间；客户端据此恢复对应旧分支的淡化状态。
 - 「轨迹」视图不渲染该保留事件类型；审计请直接查看会话 JSONL 日志。
 
 ## 安装
@@ -87,18 +87,21 @@ dsh plugin --profile desktop remove @steycr/dsh-rewind
   日志不增删改任何消息事件。
 - **打断**：mark 时若代理正在运行，`agent.cancel({ kind: 'user' }, { keepInbox: true })`
   中断当前回合；排队消息保留，随后从截断点继续。
-- **生效点**：`agent/pre-step` 瀑布中，待回退会话一旦有新输入消息进入步骤即提交隐藏区间
+- **生效点**：`agent/pre-step` 瀑布中，待回退会话一旦有新输入消息进入步骤即提交模型排除区间
   `[targetSeq, 当前日志末尾]`；新消息在此之后追加，不受影响。
-- **UI 隐藏**：纯 DOM 实现——聊天行包裹元素带 `data-chat-flow-key`，客户端按行打 seq 戳
-  并由 MutationObserver 驱动，对隐藏行内联 `display:none`；不依赖宿主 store 内部形状，
-  取消/切换会话即还原，不改动任何既有渲染器。
-  - 只有 `user` / `steering` 行**有 seq 可打**；其余行（模型输出、工具调用、context）
-    走官方渲染器、无标记，因此按 DOM 顺序从前一条已标记行**前向归属**，前导无证据的行
-    才回退到后方证据。不再采用「未打戳即不隐藏」。
-  - 隐藏状态写的是活动 DOM，故驱动卸载时必须释放（且只释放带本插件标记的行）。
+- **UI 淡化**：聊天行包裹元素带 `data-chat-flow-key`，客户端按行打 seq 戳，并用
+  `data-xsj-rewind-muted` 标记被排除的旧分支。CSS 只改变透明度与交互性，**不会改变行高、
+  `scrollHeight` 或 DOM 顺序**，因此不会因 rewind 本身触发 DSH Chat 的 ResizeObserver /
+  follow-tail 滚动策略。
+  - 待发送时仅淡化目标消息**之后**的旧分支，目标消息本身保持可读；发送提交后，旧目标消息
+    也进入已排除区间并一起淡化，新分支保持正常。
+  - 只有 `user` / `steering` 行有 seq 可打；模型输出、工具调用、context 等未标记行按 DOM
+    顺序继承前一条已标记行的区间判定。
+  - state version 更新使用 layout effect 直接套用，不再在每次版本变化时先 teardown/restore；
+    DOM observer 只负责补上后续挂载的行。
 - **回退图标**：以优先级 `-1` 接管 `conversation.chat.node` 的 `user`/`steering`
   渲染器（槽位系统的原生遮蔽机制），行内复刻原生气泡（projectUserText / ImageGallery /
-  Tooltip / writeClipboard），追加 ↺ 按钮。
+  Tooltip / writeClipboard），追加编辑 / 回退按钮。
 
 ## 移植
 

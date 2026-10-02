@@ -2,29 +2,22 @@
 
 English | [简体中文](./README.md)
 
-A DSH (DeepSeek Harness) conversation-rewind plugin. This fork targets DSH `0.2.0-rc.2` while preserving the original edit-before-send and cancel-before-commit flow.
+A DSH (DeepSeek Harness) conversation-rewind plugin. This fork targets DSH `0.2.0-rc.2` while preserving the edit-before-send and cancel-before-commit flow.
 
 ## Features
 
-- Every user message row gains a **↺ rewind** action beside the copy icon.
-  Clicking it:
+- Every user message row gains an **edit / rewind** action beside Copy. Clicking it:
   - **interrupts the current turn** if the model is still thinking/streaming;
-  - hides that message and everything after it from the chat view (as if the
-    tail never happened);
+  - keeps the selected message readable and **mutes the abandoned continuation** without removing it from layout;
   - pre-fills the composer with the message text — **unsent and editable**;
-  - **re-attaches any images** that rode the message back into the composer
-    (the host reads the original bytes from the session log and feeds them back
-    through the official attachment intake, so image count/size limits apply);
-  - on the next send, the model only sees the truncated history (everything
-    before the rewind point) plus your new message.
+  - **re-attaches any images** from the original message through the official attachment intake;
+  - on the next send, the model sees only the retained history plus your new message.
 - While a rewind is pending:
   - a banner above the composer explains the state;
-  - a **✕ "cancel rewind" button sits left of the send button** — clicking it
-    restores the hidden messages, keeps your draft, and sends nothing.
-- Once sent (rewind committed), the hidden tail never reappears in the chat
-  view and never enters the model context again.
-- Only user messages can be rewound; assistant messages have no rewind entry
-  (the host validates the event type).
+  - click ✕ or press `Esc` while the composer is focused to cancel;
+  - cancel restores normal transcript styling, clears draft text and attachments, and sends nothing.
+- Once sent, the old target and abandoned branch remain in the transcript as muted history, but never enter the model context again.
+- Only user messages can be rewound; assistant messages have no rewind entry (the host validates the event type).
 
 ## Version compatibility
 
@@ -135,8 +128,8 @@ A DSH (DeepSeek Harness) conversation-rewind plugin. This fork targets DSH `0.2.
   The type is a known-but-unused reserved entry in this build, so the records
   are reload-safe.
 - After a process restart, opening a session replays these records to rebuild
-  the hidden ranges — model-side and UI-side hiding stay consistent across
-  restarts.
+  the model-excluded ranges; the client restores the corresponding muted
+  abandoned-history presentation.
 - The trajectory view does not render this reserved event type; audit the raw
   session JSONL log directly.
 
@@ -172,18 +165,21 @@ dsh plugin --profile desktop remove @steycr/dsh-rewind
   `agent.cancel({ kind: 'user' }, { keepInbox: true })`; queued messages
   survive and continue from the rewind point.
 - **Commit point**: inside the `agent/pre-step` waterfall, the first step that
-  claims a real input message seals the hidden range
-  `[targetSeq, current log end]`; the new message is appended afterwards and
-  stays visible.
-- **UI hiding**: purely DOM-driven — chat rows carry `data-chat-flow-key`; the
-  client stamps each row with its seq and a MutationObserver applies inline
-  `display:none` to hidden rows. Nothing depends on the host store's internal
-  shape; cancelling or switching sessions restores everything without touching
-  any shipped renderer.
+  claims a real input message seals the model-excluded range
+  `[targetSeq, current log end]`; the new message is appended afterwards.
+- **UI muting**: chat rows carry `data-chat-flow-key`; the client stamps user
+  rows with seq values and marks abandoned history with
+  `data-xsj-rewind-muted`. CSS changes opacity/pointer interaction only — it
+  does not change row height, `scrollHeight`, or DOM order, so rewind
+  presentation does not trigger DSH Chat's ResizeObserver/follow-tail policy.
+  Pending rewind mutes only the continuation below the selected message;
+  after commit the old selected message joins the muted excluded range.
+  State-version updates apply in a layout effect without teardown/restore;
+  a DOM observer only catches rows mounted later.
 - **Rewind icon**: takes over the `user`/`steering` cells of
   `conversation.chat.node` at priority `-1` (the slot system's native
-  shadowing), replicating the native bubble (projectUserText / ImageGallery /
-  Tooltip / writeClipboard) plus the ↺ button.
+  shadowing), replicating the native bubble and adding the edit / rewind action.
+
 
 ## Porting
 

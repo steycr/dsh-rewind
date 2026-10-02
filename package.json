@@ -1,7 +1,7 @@
 {
   "name": "@steycr/dsh-rewind",
   "version": "2.4.2",
-  "description": "Rewind a DSH conversation to any user message: hide the tail from the chat view and the model context, keep the durable log intact, cancel freely before sending.",
+  "description": "Rewind a DSH conversation to any user message: mute the abandoned branch in the chat view, exclude it from model context, keep the durable log intact, and cancel before sending.",
   "type": "module",
   "main": "lib/index.js",
   "exports": {
